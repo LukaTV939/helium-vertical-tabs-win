@@ -1,3 +1,5 @@
+# Watch me as I figure out how to build a browser from a fork with GitHub Actions
+
 # helium-windows
 
 Windows packaging for [Helium](https://github.com/imputnet/helium).
@@ -169,4 +171,3 @@ ln -s /usr/bin/vim /usr/bin/vi
 1. Download nightly rust build from: `https://static.rust-lang.org/dist/<build-date>/rust-nightly-aarch64-pc-windows-msvc.tar.gz`
 	1. Replace `build-date` with the obtained value
 	1. Get the SHA-512 checksum using `sha512sum` in **`MSYS2 MSYS`**.
-
