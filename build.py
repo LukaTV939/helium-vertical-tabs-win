@@ -133,6 +133,11 @@ def main():
         help=('Command or path to WinRAR\'s "winrar.exe" binary. If "_use_registry" is '
               'specified, determine the path from the registry. Default: %(default)s'))
     parser.add_argument(
+        '-j',
+        type=int,
+        dest='thread_count',
+        help=('Number of CPU threads to use for compiling'))
+    parser.add_argument(
         '--ci',
         type=int,
     )
@@ -197,17 +202,17 @@ def main():
             get_logger().error('File checksum does not match: %s', exc)
             exit(1)
 
-        # Retrieve extras
-        get_logger().info('Downloading generic extras...')
-        extras_info = downloads.DownloadInfo([_ROOT_DIR / 'helium-chromium' / 'extras.ini'])
-        downloads.retrieve_downloads(extras_info, downloads_cache, None, True, args.disable_ssl_verification)
+        # Retrieve deps
+        get_logger().info('Downloading deps...')
+        deps_info = downloads.DownloadInfo([_ROOT_DIR / 'helium-chromium' / 'deps.ini'])
+        downloads.retrieve_downloads(deps_info, downloads_cache, None, True, args.disable_ssl_verification)
         try:
-            downloads.check_downloads(extras_info, downloads_cache, None)
+            downloads.check_downloads(deps_info, downloads_cache, None)
         except downloads.HashMismatchError as exc:
             get_logger().error('File checksum does not match: %s', exc)
             exit(1)
-        get_logger().info('Unpacking generic extras...')
-        downloads.unpack_downloads(extras_info, downloads_cache, None, source_tree, extractors)
+        get_logger().info('Unpacking deps...')
+        downloads.unpack_downloads(deps_info, downloads_cache, None, source_tree, extractors)
 
 
         # Prune binaries
@@ -373,6 +378,22 @@ def main():
             sys.executable,
             'tools\\rust\\build_bindgen.py', '--skip-test')
 
+    # Ninja commandline
+    ninja_commandline = ['third_party\\ninja\\ninja.exe']
+    if args.thread_count is not None:
+        ninja_commandline.append('-j')
+        ninja_commandline.append(args.thread_count)
+    ninja_commandline.append('-C')
+    ninja_commandline.append('out\\Default')
+
+    if not args.ci or not args.build_installer:
+        ninja_commandline.append('chrome')
+        ninja_commandline.append('chromedriver')
+        ninja_commandline.append('setup')
+
+    if not args.ci or args.build_installer:
+        ninja_commandline.append('mini_installer')
+
     # Run ninja
     if args.ci:
         max_time = 5.5 * 60 * 60
@@ -383,15 +404,10 @@ def main():
         if args.do_package:
             os.chdir(_ROOT_DIR)
             subprocess.run([sys.executable, 'package.py'])
-        elif not args.build_installer:
-            _run_build_process_timeout('third_party\\ninja\\ninja.exe', '-C', 'out\\Default', 'chrome',
-                                       'chromedriver', 'setup', timeout=timeout)
         else:
-            _run_build_process_timeout('third_party\\ninja\\ninja.exe', '-C', 'out\\Default',
-                                       'mini_installer', timeout=timeout)
+            _run_build_process_timeout(*ninja_commandline, timeout=timeout)
     else:
-        _run_build_process('third_party\\ninja\\ninja.exe', '-C', 'out\\Default', 'chrome',
-                           'chromedriver', 'mini_installer')
+        _run_build_process(*ninja_commandline)
 
 
 if __name__ == '__main__':
